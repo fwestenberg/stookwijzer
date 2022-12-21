@@ -1,6 +1,6 @@
 from distutils.core import setup
 setup(
-  name = 'stookalert',
+  name = 'stookwijzer',
   packages = ['stookwijzer'],
   version = '1.0.0',
   license='MIT',
