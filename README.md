@@ -1,0 +1,2 @@
+# stookwijzer
+Stookwijzer Python implementation
