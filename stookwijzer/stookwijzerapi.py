@@ -15,6 +15,8 @@ class Stookwijzer(object):
         self._state = None
         self._latitude = latitude
         self._longitude = longitude
+        self._weather = None
+        self._concentrations = None
         self._last_updated = None
         self._windspeed = None
         self._lqi = None
@@ -49,6 +51,16 @@ class Stookwijzer(object):
         """Get the last updated date."""
         return self._last_updated
 
+    @property
+    def weather(self):
+        """Get the weather JSON date."""
+        return self._weather
+
+    @property
+    def concentrations(self):
+        """Get the concentrations JSON date."""
+        return self._concentrations
+
     def update(self):
         """Get the stookwijzer data."""
         self._windspeed = self.request_windspeed()
@@ -57,27 +69,26 @@ class Stookwijzer(object):
 
     def determine_stookwijzer(self, windspeed: float, lqi: float) -> str:
         """Get the stookwijzer data."""
-        if self._windspeed is None or self._lqi is None:
+        if self._windspeed is None or (self._lqi is None and self._windspeed > 2.0):
             return None
 
         self._last_updated = datetime.now()
 
-        if self._lqi <= 4 and self._windspeed > 2:
-            return "Blauw"
-
-        if self._lqi > 4 and self._lqi <= 7 and self._windspeed > 2:
-            return "Oranje"
-
-        if self._lqi > 7 or self._windspeed <= 2:
+        if self._windspeed <= 2.0 or self._lqi > 7:
             return "Rood"
+        if self._windspeed > 2.0 and self._lqi > 4 and self._lqi <= 7:
+            return "Oranje"
+        else:
+            return "Blauw"
 
     def request_windspeed(self):
         """Get the windstate."""
         url = (
-            "https://www.stookwijzer.nu/api/weather?lat="
+            "https://api.open-meteo.com/v1/forecast?latitude="
             + str(self._latitude)
-            + "&lon="
+            + "&longitude="
             + str(self._longitude)
+            + "&current_weather=true&windspeed_unit=ms"
         )
 
         try:
@@ -86,8 +97,8 @@ class Stookwijzer(object):
                 timeout=10,
             )
 
-            windspeed = response.json()["data"]["wind"]["speed"]
-            return windspeed
+            self._weather = response.json()
+            return self._weather["current_weather"]["windspeed"]
 
         except requests.exceptions.RequestException:
             _LOGGER.error("Error getting Stookwijzer weather data")
@@ -110,7 +121,8 @@ class Stookwijzer(object):
                 timeout=10,
             )
 
-            for component in response.json()["result"]:
+            self._concentrations = response.json()
+            for component in self._concentrations["result"]:
                 measured = datetime.fromisoformat(component["timestamp_measured"])
 
                 if (measured - now).total_seconds() > 0:
