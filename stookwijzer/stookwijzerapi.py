@@ -76,7 +76,7 @@ class Stookwijzer(object):
 
         if self._windspeed <= 2.0 or self._lqi > 7:
             return "Rood"
-        if self._windspeed > 2.0 and self._lqi > 4 and self._lqi <= 7:
+        if self._windspeed > 2.0 and self._lqi >= 5 and self._lqi <= 7:
             return "Oranje"
         else:
             return "Blauw"
@@ -126,9 +126,9 @@ class Stookwijzer(object):
                 measured = datetime.fromisoformat(component["timestamp_measured"])
 
                 if (measured - now).total_seconds() > 0:
-                    return component["value"]
+                    return int(round(component["value"], 0))
 
         except requests.exceptions.RequestException:
             _LOGGER.error("Error getting Stookwijzer LQI data")
-        except KeyError:
+        except (KeyError, TypeError):
             _LOGGER.error("No Stookwijzer LQI available")
