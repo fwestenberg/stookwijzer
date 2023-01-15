@@ -75,11 +75,11 @@ class Stookwijzer(object):
         self._last_updated = datetime.now()
 
         if self._windspeed <= 2.0 or self._lqi > 7:
-            return "Rood"
+            return "rood"
         if self._windspeed > 2.0 and self._lqi >= 5 and self._lqi <= 7:
-            return "Oranje"
+            return "oranje"
         else:
-            return "Blauw"
+            return "blauw"
 
     def request_windspeed(self):
         """Get the windstate."""
