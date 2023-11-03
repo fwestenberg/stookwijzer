@@ -2,7 +2,7 @@ from distutils.core import setup
 setup(
   name = 'stookwijzer',
   packages = ['stookwijzer'],
-  version = '1.3.0',
+  version = '1.4.0',
   license='MIT',
   description = 'Stookwijzer package',
   author = 'fwestenberg',
@@ -11,7 +11,7 @@ setup(
   download_url = 'https://github.com/fwestenberg/stookwijzer/releases/latest',
   keywords = ['Stookwijzer', 'Home-Assistant'],
   install_requires=[
-          'requests',
+          'requests', 'pyreproj', 'pytz'
       ],
   classifiers=[
     'Development Status :: 5 - Production/Stable',

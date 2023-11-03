@@ -1,7 +1,8 @@
 """The Stookwijze API."""
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 
+from pyreproj import Reprojector
 import pytz
 import requests
 
@@ -12,14 +13,11 @@ class Stookwijzer(object):
     """The Stookwijze API."""
 
     def __init__(self, latitude, longitude):
+        self._boundary_box = self.get_boundary_box(latitude, longitude)
         self._state = None
-        self._latitude = latitude
-        self._longitude = longitude
-        self._weather = None
-        self._concentrations = None
+        self._alert = None
         self._last_updated = None
-        self._windspeed = None
-        self._lqi = None
+        self._stookwijzer = None
 
     @property
     def state(self):
@@ -27,92 +25,102 @@ class Stookwijzer(object):
         return self._state
 
     @property
-    def windspeed(self):
-        """Return the windspeed."""
-        return self._windspeed
+    def alert(self):
+        """Return the stookalert."""
+        return self._alert
 
     @property
-    def lqi(self):
-        """Return the lqi."""
-        return self._lqi
+    def windspeed_bft(self):
+        """Return the windspeed in bft."""
+        return self.get_property("wind_bft")
 
     @property
-    def latitude(self):
-        """Return the latitude."""
-        return self._latitude
+    def windspeed_ms(self):
+        """Return the windspeed in m/s."""
+        return self.get_property("wind")
 
     @property
-    def longitude(self):
-        """Return the lqlongitudei."""
-        return self._longitude
+    def lki(self):
+        """Return the lki."""
+        return self.get_property("lki")
+
+    @property
+    def forecast(self):
+        """Return the forecast array."""
+        forecast = []
+        runtime = self.get_property("model_runtime")
+
+        dt = datetime.strptime(runtime, "%d-%m-%Y %H:%M")
+        localdt = dt.astimezone(pytz.timezone("Europe/Amsterdam"))
+
+        for offset in range(2, 25, 2):
+            forecast.append(self.get_forecast_at_offset(localdt, offset))
+
+        return {"forecast": forecast}
 
     @property
     def last_updated(self):
         """Get the last updated date."""
         return self._last_updated
 
-    @property
-    def weather(self):
-        """Get the weather JSON date."""
-        return self._weather
-
-    @property
-    def concentrations(self):
-        """Get the concentrations JSON date."""
-        return self._concentrations
-
     def update(self):
         """Get the stookwijzer data."""
-        self._windspeed = self.request_windspeed()
-        self._lqi = self.request_lqi()
-        self._state = self.determine_stookwijzer(self._windspeed, self._lqi)
+        self._stookwijzer = self.get_stookwijzer()
 
-    def determine_stookwijzer(self, windspeed: float, lqi: float) -> str:
-        """Get the stookwijzer data."""
-        if self._windspeed is None or (self._lqi is None and self._windspeed > 2.0):
-            return None
+        advice = self.get_property("advies_0")
+        if advice:
+            self._state = self.get_color(advice)
+            self._alert = self.get_property("alert_0")
+            self._last_updated = datetime.now()
 
-        self._last_updated = datetime.now()
+    def get_forecast_at_offset(self, runtime: datetime, offset: int) -> dict:
+        """Get forecast at a certain offset."""
+        return {
+            "datetime": (runtime + timedelta(hours=offset)).isoformat(),
+            "advice": self.get_color(self.get_property("advies_" + str(offset))),
+            "alert": self.get_property("alert_" + str(offset)),
+        }
 
-        if self._windspeed <= 2.0 or self._lqi > 7:
-            return "rood"
-        if self._windspeed > 2.0 and self._lqi >= 5 and self._lqi <= 7:
-            return "oranje"
-        else:
-            return "blauw"
+    def get_boundary_box(self, latitude: float, longitude: float) -> str:
+        """Convert the coordinates from EPSG:4326 to EPSG:28992 and create a boundary box"""
+        rp = Reprojector()
+        transform = rp.get_transformation_function(from_srs=4326, to_srs=28992)
 
-    def request_windspeed(self):
-        """Get the windstate."""
-        url = (
-            "https://api.open-meteo.com/v1/forecast?latitude="
-            + str(self._latitude)
-            + "&longitude="
-            + str(self._longitude)
-            + "&current_weather=true&windspeed_unit=ms"
+        coordinates = list(transform(latitude, longitude))
+        return (
+            str(coordinates[0])
+            + "%2C"
+            + str(coordinates[1])
+            + "%2C"
+            + str(coordinates[0] + 10)
+            + "%2C"
+            + str(coordinates[1] + 10)
         )
 
+    def get_color(self, advice: str) -> str:
+        """Convert the stookwijzer data into a color."""
+
+        if advice == "0":
+            return "codeYellow"
+        if advice == "1":
+            return "codeOrange"
+        if advice == "2":
+            return "codeRed"
+        return ""
+
+    def get_property(self, prop: str) -> str:
+        """Get a feature from the JSON data"""
         try:
-            response = requests.get(
-                url,
-                timeout=10,
-            )
-
-            self._weather = response.json()
-            return self._weather["current_weather"]["windspeed"]
-
-        except requests.exceptions.RequestException:
-            _LOGGER.error("Error getting Stookwijzer weather data")
+            return str(self._stookwijzer["features"][0]["properties"][prop])
         except KeyError:
-            _LOGGER.error("No Stookwijzer windspeed available")
+            _LOGGER.error("Property %s not available", prop)
+            return ""
 
-    def request_lqi(self):
-        """Get the lqi."""
-        now = datetime.now(pytz.timezone("Europe/Amsterdam"))
+    def get_stookwijzer(self):
+        """Get the stookwijzer data."""
         url = (
-            "https://api2020.luchtmeetnet.nl/ascii/concentrations?formula=LKI&latitude="
-            + str(self._latitude)
-            + "&longitude="
-            + str(self._longitude)
+            "https://data.rivm.nl/geo/alo/wms?service=WMS&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&FORMAT=application%2Fjson&QUERY_LAYERS=stookwijzer&LAYERS=stookwijzer&servicekey=82b124ad-834d-4c10-8bd0-ee730d5c1cc8&STYLES=&BUFFER=1&info_format=application%2Fjson&feature_count=1&I=1&J=1&WIDTH=1&HEIGHT=1&CRS=EPSG%3A28992&BBOX="
+            + self._boundary_box
         )
 
         try:
@@ -120,15 +128,7 @@ class Stookwijzer(object):
                 url,
                 timeout=10,
             )
-
-            self._concentrations = response.json()
-            for component in self._concentrations["result"]:
-                measured = datetime.fromisoformat(component["timestamp_measured"])
-
-                if (measured - now).total_seconds() > 0:
-                    return int(round(component["value"], 0))
+            return response.json()
 
         except requests.exceptions.RequestException:
-            _LOGGER.error("Error getting Stookwijzer LQI data")
-        except (KeyError, TypeError):
-            _LOGGER.error("No Stookwijzer LQI available")
+            _LOGGER.error("Error getting Stookwijzer data")
