@@ -98,13 +98,12 @@ class Stookwijzer(object):
 
     def get_color(self, advice: str) -> str:
         """Convert the stookwijzer data into a color."""
-
         if advice == "0":
-            return "codeYellow"
+            return "code_yellow"
         if advice == "1":
-            return "codeOrange"
+            return "code_orange"
         if advice == "2":
-            return "codeRed"
+            return "code_red"
         return ""
 
     def get_property(self, prop: str) -> str:
