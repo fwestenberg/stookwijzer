@@ -55,8 +55,7 @@ class Stookwijzer(object):
 
         for offset in range(2, 25, 2):
             forecast.append(self.get_forecast_at_offset(localdt, offset))
-
-        return {"forecast": forecast}
+        return forecast
 
     @property
     def last_updated(self):
@@ -70,7 +69,7 @@ class Stookwijzer(object):
         advice = self.get_property("advies_0")
         if advice:
             self._state = self.get_color(advice)
-            self._alert = self.get_property("alert_0")
+            self._alert = self.get_property("alert_0") == '1'
             self._last_updated = datetime.now()
 
     def get_forecast_at_offset(self, runtime: datetime, offset: int) -> dict:
@@ -78,7 +77,7 @@ class Stookwijzer(object):
         return {
             "datetime": (runtime + timedelta(hours=offset)).isoformat(),
             "advice": self.get_color(self.get_property("advies_" + str(offset))),
-            "alert": self.get_property("alert_" + str(offset)),
+            "alert": self.get_property("alert_" + str(offset))  == '1',
         }
 
     def get_boundary_box(self, latitude: float, longitude: float) -> str:

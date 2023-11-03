@@ -10,3 +10,4 @@ if __name__ == "__main__":
     print(sw.windspeed_ms)
     print(sw.lki)
     print(sw.forecast)
+    
