@@ -18,6 +18,27 @@ class Stookwijzer(object):
         self._last_updated = None
         self._stookwijzer = None
 
+    @staticmethod
+    def transform_coordinates(latitude: float,longitude: float):
+        """Transform the coordinates from EPSG:4326 to EPSG:28992."""
+        url = f"https://epsg.io/srs/transform/{longitude},{latitude}.json?key=default&s_srs=4326&t_srs=28992"
+
+        try:
+            response = requests.get(
+                url,
+                timeout=10,
+            )
+            coordinates = response.json()
+
+            return coordinates["results"][0]["x"],coordinates["results"][0]["y"]
+
+        except requests.exceptions.RequestException:
+            _LOGGER.error("Error requesting coordinate conversion")
+            return None
+        except KeyError:
+            _LOGGER.error("Received invalid response transforming coordinates")
+            return None
+
     @property
     def state(self):
         """Return the state."""
@@ -83,28 +104,9 @@ class Stookwijzer(object):
             "alert": self.get_property("alert_" + str(offset))  == '1',
         }
 
-    def get_boundary_box(self, latitude: float, longitude: float) -> str | None:
-        """Convert the coordinates from EPSG:4326 to EPSG:28992 and create a boundary box"""
-        url = f"https://epsg.io/srs/transform/{longitude},{latitude}.json?key=default&s_srs=4326&t_srs=28992"
-
-        try:
-            response = requests.get(
-                url,
-                timeout=10,
-            )
-            coordinates = response.json()
-
-            x = coordinates["results"][0]["z"]
-            y = coordinates["results"][0]["y"]
-
-            return (str(x) + "%2C" + str(y) + "%2C" + str(x + 10) + "%2C" + str(y + 10))
-
-        except requests.exceptions.RequestException:
-            _LOGGER.error("Error requesting coordinate conversion")
-            return None
-        except KeyError:
-            _LOGGER.error("Received invalid response transforming coordinates")
-            return None
+    def get_boundary_box(self, x: str, y: str) -> str | None:
+        """Create a boundary box with the coordinates"""
+        return (str(x) + "%2C" + str(y) + "%2C" + str(x + 10) + "%2C" + str(y + 10))
 
     def get_color(self, advice: str) -> str:
         """Convert the Stookwijzer data into a color."""
