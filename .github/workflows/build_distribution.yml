@@ -1,5 +1,9 @@
 name: Build Python distribution
-on: push
+
+on:
+  release:
+    types: [published]
+    
 jobs:
   build:
     name: Build distribution 📦
