@@ -5,6 +5,8 @@ setup(
   version = '1.4.3',
   license='MIT',
   description = 'Stookwijzer package',
+  long_description_content_type="text/markdown",
+  long_description=README,
   author = 'fwestenberg',
   author_email = '',
   url = 'https://github.com/fwestenberg/stookwijzer',
