@@ -2,7 +2,6 @@
 from datetime import datetime, timedelta
 import logging
 
-from pyreproj import Reprojector
 import pytz
 import requests
 
@@ -50,11 +49,15 @@ class Stookwijzer(object):
         forecast = []
         runtime = self.get_property("model_runtime")
 
+        if not runtime:
+            return None
+
         dt = datetime.strptime(runtime, "%d-%m-%Y %H:%M")
         localdt = dt.astimezone(pytz.timezone("Europe/Amsterdam"))
 
         for offset in range(2, 25, 2):
             forecast.append(self.get_forecast_at_offset(localdt, offset))
+        
         return forecast
 
     @property
@@ -80,24 +83,31 @@ class Stookwijzer(object):
             "alert": self.get_property("alert_" + str(offset))  == '1',
         }
 
-    def get_boundary_box(self, latitude: float, longitude: float) -> str:
+    def get_boundary_box(self, latitude: float, longitude: float) -> str | None:
         """Convert the coordinates from EPSG:4326 to EPSG:28992 and create a boundary box"""
-        rp = Reprojector()
-        transform = rp.get_transformation_function(from_srs=4326, to_srs=28992)
+        url = f"https://epsg.io/srs/transform/{longitude},{latitude}.json?key=default&s_srs=4326&t_srs=28992"
 
-        coordinates = list(transform(latitude, longitude))
-        return (
-            str(coordinates[0])
-            + "%2C"
-            + str(coordinates[1])
-            + "%2C"
-            + str(coordinates[0] + 10)
-            + "%2C"
-            + str(coordinates[1] + 10)
-        )
+        try:
+            response = requests.get(
+                url,
+                timeout=10,
+            )
+            coordinates = response.json()
+
+            x = coordinates["results"][0]["z"]
+            y = coordinates["results"][0]["y"]
+
+            return (str(x) + "%2C" + str(y) + "%2C" + str(x + 10) + "%2C" + str(y + 10))
+
+        except requests.exceptions.RequestException:
+            _LOGGER.error("Error requesting coordinate conversion")
+            return None
+        except KeyError:
+            _LOGGER.error("Received invalid response transforming coordinates")
+            return None
 
     def get_color(self, advice: str) -> str:
-        """Convert the stookwijzer data into a color."""
+        """Convert the Stookwijzer data into a color."""
         if advice == "0":
             return "code_yellow"
         if advice == "1":
@@ -110,7 +120,7 @@ class Stookwijzer(object):
         """Get a feature from the JSON data"""
         try:
             return str(self._stookwijzer["features"][0]["properties"][prop])
-        except KeyError:
+        except (KeyError, IndexError):
             _LOGGER.error("Property %s not available", prop)
             return ""
 
