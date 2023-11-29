@@ -6,7 +6,7 @@ setup(
   license='MIT',
   description = 'Stookwijzer package',
   long_description_content_type="text/markdown",
-  long_description=README,
+  long_description=README.md,
   author = 'fwestenberg',
   author_email = '',
   url = 'https://github.com/fwestenberg/stookwijzer',
