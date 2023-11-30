@@ -1,9 +1,11 @@
 """The Stookwijze API."""
 from datetime import datetime, timedelta
-import logging
 
+import aiohttp
+import asyncio
+import json
+import logging
 import pytz
-import requests
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -11,33 +13,13 @@ _LOGGER = logging.getLogger(__name__)
 class Stookwijzer(object):
     """The Stookwijze API."""
 
-    def __init__(self, latitude, longitude):
-        self._boundary_box = self.get_boundary_box(latitude, longitude)
+    def __init__(self, session: aiohttp.ClientSession, x: float, y: float):
+        self._boundary_box = self.get_boundary_box(x, y)
         self._state = None
         self._alert = None
         self._last_updated = None
         self._stookwijzer = None
-
-    @staticmethod
-    def transform_coordinates(latitude: float,longitude: float):
-        """Transform the coordinates from EPSG:4326 to EPSG:28992."""
-        url = f"https://epsg.io/srs/transform/{longitude},{latitude}.json?key=default&s_srs=4326&t_srs=28992"
-
-        try:
-            response = requests.get(
-                url,
-                timeout=10,
-            )
-            coordinates = response.json()
-
-            return coordinates["results"][0]["x"],coordinates["results"][0]["y"]
-
-        except requests.exceptions.RequestException:
-            _LOGGER.error("Error requesting coordinate conversion")
-            return None
-        except KeyError:
-            _LOGGER.error("Received invalid response transforming coordinates")
-            return None
+        self._session = session
 
     @property
     def state(self):
@@ -86,9 +68,32 @@ class Stookwijzer(object):
         """Get the last updated date."""
         return self._last_updated
 
-    def update(self):
+    @staticmethod
+    async def transform_coordinates(session: aiohttp.ClientSession, latitude: float,longitude: float):
+        """Transform the coordinates from EPSG:4326 to EPSG:28992."""
+        url = f"https://epsg.io/srs/transform/{longitude},{latitude}.json?key=default&s_srs=4326&t_srs=28992"
+        try:
+            async with session.get(
+                url=url, timeout=10
+            ) as response:
+                response = await response.read()
+
+            coordinates = json.loads(response)
+            return coordinates["results"][0]["x"],coordinates["results"][0]["y"]
+
+        except aiohttp.ClientConnectorError:
+            _LOGGER.error("Error requesting coordinate conversion")
+            return None, None
+        except asyncio.TimeoutError:
+            _LOGGER.error("Timeout requesting coordinate conversion")
+            return None, None
+        except KeyError:
+            _LOGGER.error("Received invalid response transforming coordinates")
+            return None, None
+
+    async def update(self) -> None:
         """Get the stookwijzer data."""
-        self._stookwijzer = self.get_stookwijzer()
+        self._stookwijzer = await self.get_stookwijzer()
 
         advice = self.get_property("advies_0")
         if advice:
@@ -104,7 +109,7 @@ class Stookwijzer(object):
             "alert": self.get_property("alert_" + str(offset))  == '1',
         }
 
-    def get_boundary_box(self, x: str, y: str) -> str | None:
+    def get_boundary_box(self, x: float, y: float) -> str | None:
         """Create a boundary box with the coordinates"""
         return (str(x) + "%2C" + str(y) + "%2C" + str(x + 10) + "%2C" + str(y + 10))
 
@@ -126,7 +131,7 @@ class Stookwijzer(object):
             _LOGGER.error("Property %s not available", prop)
             return ""
 
-    def get_stookwijzer(self):
+    async def get_stookwijzer(self):
         """Get the stookwijzer data."""
         url = (
             "https://data.rivm.nl/geo/alo/wms?service=WMS&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&FORMAT=application%2Fjson&QUERY_LAYERS=stookwijzer&LAYERS=stookwijzer&servicekey=82b124ad-834d-4c10-8bd0-ee730d5c1cc8&STYLES=&BUFFER=1&info_format=application%2Fjson&feature_count=1&I=1&J=1&WIDTH=1&HEIGHT=1&CRS=EPSG%3A28992&BBOX="
@@ -134,11 +139,19 @@ class Stookwijzer(object):
         )
 
         try:
-            response = requests.get(
-                url,
-                timeout=10,
-            )
-            return response.json()
+            async with self._session.get(
+                url=url, allow_redirects=False, timeout=10
+            ) as response:
+                response = await response.read()
 
-        except requests.exceptions.RequestException:
+            return json.loads(response)
+
+        except aiohttp.ClientConnectorError:
             _LOGGER.error("Error getting Stookwijzer data")
+            return None
+        except asyncio.TimeoutError:
+            _LOGGER.error("Timeout getting Stookwijzer data")
+            return None
+        except KeyError:
+            _LOGGER.error("Received invalid response from Stookwijzer")
+            return None
