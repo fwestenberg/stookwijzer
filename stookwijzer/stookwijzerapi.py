@@ -143,7 +143,7 @@ class Stookwijzer(object):
         """Get a feature from the JSON data"""
         try:
             return str(self._stookwijzer["features"][0]["properties"][prop])
-        except (KeyError, IndexError):
+        except (KeyError, IndexError, TypeError):
             _LOGGER.error("Property %s not available", prop)
             return ""
 
