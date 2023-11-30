@@ -13,7 +13,7 @@ setup(
   download_url = 'https://github.com/fwestenberg/stookwijzer/releases/latest',
   keywords = ['Stookwijzer', 'Home-Assistant'],
   install_requires=[
-          'requests', 'pytz'
+          'aiohttp', 'pytz'
       ],
   classifiers=[
     'Development Status :: 5 - Production/Stable',
