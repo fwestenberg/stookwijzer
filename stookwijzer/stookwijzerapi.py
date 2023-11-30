@@ -15,71 +15,65 @@ class Stookwijzer(object):
 
     def __init__(self, session: aiohttp.ClientSession, x: float, y: float):
         self._boundary_box = self.get_boundary_box(x, y)
-        self._state = None
+        self._advice = None
         self._alert = None
         self._last_updated = None
         self._stookwijzer = None
         self._session = session
 
     @property
-    def state(self):
-        """Return the state."""
-        return self._state
+    def advice(self) -> str | None:
+        """Return the advice."""
+        return self._advice
 
     @property
-    def alert(self):
+    def alert(self) -> str | None:
         """Return the stookalert."""
         return self._alert
 
     @property
-    def windspeed_bft(self):
+    def windspeed_bft(self) -> str | None:
         """Return the windspeed in bft."""
         return self.get_property("wind_bft")
 
     @property
-    def windspeed_ms(self):
+    def windspeed_ms(self) -> float | None:
         """Return the windspeed in m/s."""
-        return self.get_property("wind")
+        windspeed = self.get_property("wind")
+        return round(float(windspeed), 1) if windspeed else windspeed
 
     @property
-    def lki(self):
+    def lki(self) -> str | None:
         """Return the lki."""
         return self.get_property("lki")
 
     @property
-    def forecast(self):
-        """Return the forecast array."""
-        forecast = []
-        runtime = self.get_property("model_runtime")
-
-        if not runtime:
-            return None
-
-        dt = datetime.strptime(runtime, "%d-%m-%Y %H:%M")
-        localdt = dt.astimezone(pytz.timezone("Europe/Amsterdam"))
-
-        for offset in range(2, 25, 2):
-            forecast.append(self.get_forecast_at_offset(localdt, offset))
-
-        return forecast
+    def forecast_advice(self) -> list:
+        """Return the forecast array for advices."""
+        return self.get_forecast_array(True)
 
     @property
-    def last_updated(self):
+    def forecast_alert(self) -> list:
+        """Return the forecast array for alerts."""
+        return self.get_forecast_array(False)
+
+    @property
+    def last_updated(self) -> datetime | None:
         """Get the last updated date."""
         return self._last_updated
 
     @staticmethod
-    async def async_transform_coordinates(session: aiohttp.ClientSession, latitude: float,longitude: float):
+    async def async_transform_coordinates(
+        session: aiohttp.ClientSession, latitude: float, longitude: float
+    ):
         """Transform the coordinates from EPSG:4326 to EPSG:28992."""
         url = f"https://epsg.io/srs/transform/{longitude},{latitude}.json?key=default&s_srs=4326&t_srs=28992"
         try:
-            async with session.get(
-                url=url, timeout=10
-            ) as response:
+            async with session.get(url=url, timeout=10) as response:
                 response = await response.read()
 
             coordinates = json.loads(response)
-            return coordinates["results"][0]["x"],coordinates["results"][0]["y"]
+            return coordinates["results"][0]["x"], coordinates["results"][0]["y"]
 
         except aiohttp.ClientConnectorError:
             _LOGGER.error("Error requesting coordinate conversion")
@@ -97,21 +91,43 @@ class Stookwijzer(object):
 
         advice = self.get_property("advies_0")
         if advice:
-            self._state = self.get_color(advice)
-            self._alert = self.get_property("alert_0") == '1'
+            self._advice = self.get_color(advice)
+            self._alert = self.get_property("alert_0") == "1"
             self._last_updated = datetime.now()
 
-    def get_forecast_at_offset(self, runtime: datetime, offset: int) -> dict:
+    def get_forecast_array(self, advice: bool) -> list:
+        """Return the forecast array."""
+        forecast = []
+        runtime = self.get_property("model_runtime")
+
+        if not runtime:
+            return None
+
+        dt = datetime.strptime(runtime, "%d-%m-%Y %H:%M")
+        localdt = dt.astimezone(pytz.timezone("Europe/Amsterdam"))
+
+        for offset in range(2, 25, 2):
+            forecast.append(self.get_forecast_at_offset(localdt, offset, advice))
+
+        return forecast
+
+    def get_forecast_at_offset(
+        self, runtime: datetime, offset: int, advice: bool
+    ) -> dict:
         """Get forecast at a certain offset."""
-        return {
-            "datetime": (runtime + timedelta(hours=offset)).isoformat(),
-            "advice": self.get_color(self.get_property("advies_" + str(offset))),
-            "alert": self.get_property("alert_" + str(offset))  == '1',
-        }
+        dt = {"datetime": (runtime + timedelta(hours=offset)).isoformat()}
+        forecast = (
+            {"advice": self.get_color(self.get_property("advies_" + str(offset)))}
+            if advice
+            else {"alert": self.get_property("alert_" + str(offset)) == "1"}
+        )
+        dt.update(forecast)
+
+        return dt
 
     def get_boundary_box(self, x: float, y: float) -> str | None:
         """Create a boundary box with the coordinates"""
-        return (str(x) + "%2C" + str(y) + "%2C" + str(x + 10) + "%2C" + str(y + 10))
+        return str(x) + "%2C" + str(y) + "%2C" + str(x + 10) + "%2C" + str(y + 10)
 
     def get_color(self, advice: str) -> str:
         """Convert the Stookwijzer data into a color."""

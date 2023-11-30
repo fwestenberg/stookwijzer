@@ -1,5 +1,4 @@
 """Example usage of the Stookwijzer API."""
-import sys
 import aiohttp
 import asyncio
 import stookwijzerapi
@@ -15,12 +14,13 @@ async def main():
         sw = stookwijzerapi.Stookwijzer(session, x, y)
         await sw.async_update()
 
-        print(sw.state)
+        print(sw.advice)
         print(sw.alert)
         print(sw.windspeed_bft)
         print(sw.windspeed_ms)
         print(sw.lki)
-        print(sw.forecast)
+        print(sw.forecast_advice)
+        print(sw.forecast_alert)
     
     await session.close()
     
