@@ -7,13 +7,13 @@ import stookwijzerapi
 async def main():
     session = aiohttp.ClientSession()
 
-    x, y = await stookwijzerapi.Stookwijzer.transform_coordinates(session, 52.123456, 6.123456)
+    x, y = await stookwijzerapi.Stookwijzer.async_transform_coordinates(session, 52.123456, 6.123456)
     print(x)
     print(y)
 
     if x and y:
         sw = stookwijzerapi.Stookwijzer(session, x, y)
-        await sw.update()
+        await sw.async_update()
 
         print(sw.state)
         print(sw.alert)

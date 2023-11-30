@@ -60,7 +60,7 @@ class Stookwijzer(object):
 
         for offset in range(2, 25, 2):
             forecast.append(self.get_forecast_at_offset(localdt, offset))
-        
+
         return forecast
 
     @property
@@ -69,7 +69,7 @@ class Stookwijzer(object):
         return self._last_updated
 
     @staticmethod
-    async def transform_coordinates(session: aiohttp.ClientSession, latitude: float,longitude: float):
+    async def async_transform_coordinates(session: aiohttp.ClientSession, latitude: float,longitude: float):
         """Transform the coordinates from EPSG:4326 to EPSG:28992."""
         url = f"https://epsg.io/srs/transform/{longitude},{latitude}.json?key=default&s_srs=4326&t_srs=28992"
         try:
@@ -91,9 +91,9 @@ class Stookwijzer(object):
             _LOGGER.error("Received invalid response transforming coordinates")
             return None, None
 
-    async def update(self) -> None:
+    async def async_update(self) -> None:
         """Get the stookwijzer data."""
-        self._stookwijzer = await self.get_stookwijzer()
+        self._stookwijzer = await self.async_get_stookwijzer()
 
         advice = self.get_property("advies_0")
         if advice:
@@ -131,7 +131,7 @@ class Stookwijzer(object):
             _LOGGER.error("Property %s not available", prop)
             return ""
 
-    async def get_stookwijzer(self):
+    async def async_get_stookwijzer(self):
         """Get the stookwijzer data."""
         url = (
             "https://data.rivm.nl/geo/alo/wms?service=WMS&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&FORMAT=application%2Fjson&QUERY_LAYERS=stookwijzer&LAYERS=stookwijzer&servicekey=82b124ad-834d-4c10-8bd0-ee730d5c1cc8&STYLES=&BUFFER=1&info_format=application%2Fjson&feature_count=1&I=1&J=1&WIDTH=1&HEIGHT=1&CRS=EPSG%3A28992&BBOX="
