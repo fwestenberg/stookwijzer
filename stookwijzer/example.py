@@ -4,23 +4,25 @@ import asyncio
 import stookwijzerapi
 
 async def main():
-    session = aiohttp.ClientSession()
+    session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False))
 
     x, y = await stookwijzerapi.Stookwijzer.async_transform_coordinates(session, 52.123456, 6.123456)
-    print(x)
-    print(y)
+    print(f"x:               {x}")
+    print(f"y:               {y}")
 
     if x and y:
         sw = stookwijzerapi.Stookwijzer(session, x, y)
         await sw.async_update()
-
-        print(sw.advice)
-        print(sw.alert)
-        print(sw.windspeed_bft)
-        print(sw.windspeed_ms)
-        print(sw.lki)
-        print(sw.forecast_advice)
-        print(sw.forecast_alert)
+        print()
+        print(f"advice:          {sw.advice}")
+        print(f"alert:           {sw.alert}")
+        print(f"windspeed bft:   {sw.windspeed_bft}")
+        print(f"windspeed ms:    {sw.windspeed_ms}")
+        print(f"lki:             {sw.lki}")
+        print()
+        print(f"forecast_advice: {sw.forecast_advice}")
+        print()
+        print(f"forecast_alert:  {sw.forecast_alert}")
     
     await session.close()
     

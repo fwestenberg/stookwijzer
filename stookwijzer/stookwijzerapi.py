@@ -27,12 +27,12 @@ class Stookwijzer(object):
         return self._advice
 
     @property
-    def alert(self) -> str | None:
+    def alert(self) -> bool | None:
         """Return the stookalert."""
         return self._alert
 
     @property
-    def windspeed_bft(self) -> str | None:
+    def windspeed_bft(self) -> int | None:
         """Return the windspeed in bft."""
         return self.get_property("wind_bft")
 
@@ -43,7 +43,7 @@ class Stookwijzer(object):
         return round(float(windspeed), 1) if windspeed else windspeed
 
     @property
-    def lki(self) -> str | None:
+    def lki(self) -> int | None:
         """Return the lki."""
         return self.get_property("lki")
 
