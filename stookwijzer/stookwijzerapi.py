@@ -92,7 +92,7 @@ class Stookwijzer(object):
         advice = self.get_property("advies_0")
         if advice:
             self._advice = self.get_color(advice)
-            self._alert = self.get_property("alert_0") == "1"
+            self._alert = advice > "0"
             self._last_updated = datetime.now()
 
     def get_forecast_array(self, advice: bool) -> list:
