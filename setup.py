@@ -2,7 +2,7 @@ from distutils.core import setup
 setup(
   name = 'stookwijzer',
   packages = ['stookwijzer'],
-  version = '1.5.0',
+  version = '1.5.1',
   license='MIT',
   description = 'Stookwijzer package',
   long_description_content_type="text/markdown",

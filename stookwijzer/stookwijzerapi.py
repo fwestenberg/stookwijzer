@@ -27,11 +27,6 @@ class Stookwijzer(object):
         return self._advice
 
     @property
-    def alert(self) -> bool | None:
-        """Return the stookalert."""
-        return self._alert
-
-    @property
     def windspeed_bft(self) -> int | None:
         """Return the windspeed in bft."""
         return self.get_property("wind_bft")
@@ -51,11 +46,6 @@ class Stookwijzer(object):
     def forecast_advice(self) -> list:
         """Return the forecast array for advices."""
         return self.get_forecast_array(True)
-
-    @property
-    def forecast_alert(self) -> list:
-        """Return the forecast array for alerts."""
-        return self.get_forecast_array(False)
 
     @property
     def last_updated(self) -> datetime | None:
@@ -92,7 +82,6 @@ class Stookwijzer(object):
         advice = self.get_property("advies_0")
         if advice:
             self._advice = self.get_color(advice)
-            self._alert = self.get_property("alert_0") == "1"
             self._last_updated = datetime.now()
 
     def get_forecast_array(self, advice: bool) -> list:
@@ -106,7 +95,7 @@ class Stookwijzer(object):
         dt = datetime.strptime(runtime, "%d-%m-%Y %H:%M")
         localdt = dt.astimezone(pytz.timezone("Europe/Amsterdam"))
 
-        for offset in range(2, 25, 2):
+        for offset in range(0, 19, 6):
             forecast.append(self.get_forecast_at_offset(localdt, offset, advice))
 
         return forecast
@@ -118,8 +107,6 @@ class Stookwijzer(object):
         dt = {"datetime": (runtime + timedelta(hours=offset)).isoformat()}
         forecast = (
             {"advice": self.get_color(self.get_property("advies_" + str(offset)))}
-            if advice
-            else {"alert": self.get_property("alert_" + str(offset)) == "1"}
         )
         dt.update(forecast)
 

@@ -15,14 +15,11 @@ async def main():
         await sw.async_update()
         print()
         print(f"advice:          {sw.advice}")
-        print(f"alert:           {sw.alert}")
         print(f"windspeed bft:   {sw.windspeed_bft}")
         print(f"windspeed ms:    {sw.windspeed_ms}")
         print(f"lki:             {sw.lki}")
         print()
         print(f"forecast_advice: {sw.forecast_advice}")
-        print()
-        print(f"forecast_alert:  {sw.forecast_alert}")
     
     await session.close()
     
