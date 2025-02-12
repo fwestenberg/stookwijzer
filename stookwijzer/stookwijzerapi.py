@@ -1,4 +1,5 @@
 """The Stookwijze API."""
+
 from datetime import datetime, timedelta
 
 import aiohttp
@@ -43,11 +44,6 @@ class Stookwijzer(object):
         return self.get_property("lki")
 
     @property
-    def forecast_advice(self) -> list:
-        """Return the forecast array for advices."""
-        return self.get_forecast_array(True)
-
-    @property
     def last_updated(self) -> datetime | None:
         """Get the last updated date."""
         return self._last_updated
@@ -84,7 +80,7 @@ class Stookwijzer(object):
             self._advice = self.get_color(advice)
             self._last_updated = datetime.now()
 
-    def get_forecast_array(self, advice: bool) -> list:
+    async def async_get_forecast(self) -> list[dict[str, str]]:
         """Return the forecast array."""
         forecast = []
         runtime = self.get_property("model_runtime")
@@ -96,18 +92,17 @@ class Stookwijzer(object):
         localdt = dt.astimezone(pytz.timezone("Europe/Amsterdam"))
 
         for offset in range(0, 19, 6):
-            forecast.append(self.get_forecast_at_offset(localdt, offset, advice))
+            forecast.append(await self.get_forecast_at_offset(localdt, offset))
 
         return forecast
 
-    def get_forecast_at_offset(
-        self, runtime: datetime, offset: int, advice: bool
-    ) -> dict:
+    async def get_forecast_at_offset(self, runtime: datetime, offset: int) -> dict[str, str]:
         """Get forecast at a certain offset."""
         dt = {"datetime": (runtime + timedelta(hours=offset)).isoformat()}
-        forecast = (
-            {"advice": self.get_color(self.get_property("advies_" + str(offset)))}
-        )
+        forecast = {
+            "advice": self.get_color(self.get_property("advies_" + str(offset))),
+            "final": self.get_property("definitief_" + str(offset)),
+        }
         dt.update(forecast)
 
         return dt

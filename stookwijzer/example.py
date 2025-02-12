@@ -19,9 +19,9 @@ async def main():
         print(f"windspeed ms:    {sw.windspeed_ms}")
         print(f"lki:             {sw.lki}")
         print()
-        print(f"forecast_advice: {sw.forecast_advice}")
-    
+        print(f"forecast_advice: {await sw.async_get_forecast()}")
+
     await session.close()
-    
+
 if __name__ == "__main__":
     asyncio.run(main())
