@@ -10,6 +10,9 @@ import pytz
 
 _LOGGER = logging.getLogger(__name__)
 
+type JsonValueType = (
+    dict[str, JsonValueType] | list[JsonValueType] | str | int | float | bool | None
+)
 
 class Stookwijzer(object):
     """The Stookwijze API."""
@@ -80,7 +83,7 @@ class Stookwijzer(object):
             self._advice = self.get_color(advice)
             self._last_updated = datetime.now()
 
-    async def async_get_forecast(self) -> list[dict[str, str]]:
+    async def async_get_forecast(self) -> dict[JsonValueType]:
         """Return the forecast array."""
         forecast = []
         runtime = self.get_property("model_runtime")
@@ -96,7 +99,7 @@ class Stookwijzer(object):
 
         return forecast
 
-    async def get_forecast_at_offset(self, runtime: datetime, offset: int) -> dict[str, str]:
+    async def get_forecast_at_offset(self, runtime: datetime, offset: int) -> JsonValueType:
         """Get forecast at a certain offset."""
         dt = {"datetime": (runtime + timedelta(hours=offset)).isoformat()}
         forecast = {
