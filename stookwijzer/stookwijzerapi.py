@@ -1,6 +1,7 @@
 """The Stookwijze API."""
 
 from datetime import datetime, timedelta
+from pointset import PointSet
 
 import aiohttp
 import asyncio
@@ -8,10 +9,11 @@ import json
 import logging
 import pytz
 
+
 _LOGGER = logging.getLogger(__name__)
 
 
-class Stookwijzer():
+class Stookwijzer:
     """The Stookwijze API."""
 
     def __init__(self, session: aiohttp.ClientSession, x: float, y: float):
@@ -49,27 +51,13 @@ class Stookwijzer():
         return self._last_updated
 
     @staticmethod
-    async def async_transform_coordinates(
-        session: aiohttp.ClientSession, latitude: float, longitude: float
-    ):
+    async def async_transform_coordinates(latitude: float, longitude: float):
         """Transform the coordinates from EPSG:4326 to EPSG:28992."""
-        url = f"https://epsg.io/srs/transform/{longitude},{latitude}.json?key=default&s_srs=4326&t_srs=28992"
-        try:
-            async with session.get(url=url, timeout=10) as response:
-                response = await response.read()
-
-            coordinates = json.loads(response)
-            return coordinates["results"][0]["x"], coordinates["results"][0]["y"]
-
-        except aiohttp.ClientConnectorError:
+        point_set = PointSet(xyz=[latitude, longitude, 0], epsg=4326)
+        coordinates = point_set.to_epsg(28992)
+        if not coordinates:
             _LOGGER.error("Error requesting coordinate conversion")
-            return None, None
-        except asyncio.TimeoutError:
-            _LOGGER.error("Timeout requesting coordinate conversion")
-            return None, None
-        except KeyError:
-            _LOGGER.error("Received invalid response transforming coordinates")
-            return None, None
+        return coordinates.x, coordinates.y
 
     async def async_update(self) -> None:
         """Get the stookwijzer data."""
@@ -96,7 +84,9 @@ class Stookwijzer():
 
         return forecast
 
-    async def get_forecast_at_offset(self, runtime: datetime, offset: int) -> dict[str, str]:
+    async def get_forecast_at_offset(
+        self, runtime: datetime, offset: int
+    ) -> dict[str, str]:
         """Get forecast at a certain offset."""
         dt = {"datetime": (runtime + timedelta(hours=offset)).isoformat()}
         forecast = {
