@@ -2,7 +2,7 @@ from distutils.core import setup
 setup(
   name = 'stookwijzer',
   packages = ['stookwijzer'],
-  version = '1.5.5',
+  version = '1.5.6',
   license='MIT',
   description = 'Stookwijzer package',
   long_description_content_type="text/markdown",
@@ -13,7 +13,7 @@ setup(
   download_url = 'https://github.com/fwestenberg/stookwijzer/releases/latest',
   keywords = ['Stookwijzer', 'Home-Assistant'],
   install_requires=[
-          'aiohttp', 'pointset', 'pytz'
+          'aiohttp', 'numpy', 'pointset', 'pytz'
       ],
   classifiers=[
     'Development Status :: 5 - Production/Stable',
