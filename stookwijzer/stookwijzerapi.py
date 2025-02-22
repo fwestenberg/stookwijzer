@@ -54,7 +54,7 @@ class Stookwijzer:
     @staticmethod
     async def async_transform_coordinates(latitude: float, longitude: float):
         """Transform the coordinates from EPSG:4326 to EPSG:28992."""
-        point_set = PointSet(xyz=numpy.array([52.3731339, 4.8903147, 0]), epsg=4326)
+        point_set = PointSet(xyz=numpy.array([latitude, longitude, 0]), epsg=4326)
         coordinates = point_set.to_epsg(28992)
         if not coordinates:
             _LOGGER.error("Error requesting coordinate conversion")
