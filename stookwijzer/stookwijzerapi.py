@@ -1,13 +1,12 @@
 """The Stookwijze API."""
 
 from datetime import datetime, timedelta
-from pointset import PointSet
+from pyproj import Transformer
 
 import aiohttp
 import asyncio
 import json
 import logging
-import numpy
 import pytz
 
 
@@ -54,11 +53,12 @@ class Stookwijzer:
     @staticmethod
     async def async_transform_coordinates(latitude: float, longitude: float):
         """Transform the coordinates from EPSG:4326 to EPSG:28992."""
-        point_set = PointSet(xyz=numpy.array([latitude, longitude, 0]), epsg=4326)
-        coordinates = point_set.to_epsg(28992)
+        transformer = Transformer.from_crs("EPSG:4326", "EPSG:28992")
+        coordinates = transformer.transform(latitude, longitude)
+
         if not coordinates:
             _LOGGER.error("Error requesting coordinate conversion")
-        return coordinates.x, coordinates.y
+        return coordinates[0], coordinates[1]
 
     async def async_update(self) -> None:
         """Get the stookwijzer data."""
