@@ -50,7 +50,7 @@ class Stookwijzer:
         return self._last_updated
 
     @staticmethod
-    async def async_transform_coordinates(latitude: float, longitude: float):
+    async def async_transform_coordinates(latitude: float, longitude: float) -> dict | None:
         """Transform the coordinates from EPSG:4326 to EPSG:28992."""
         x0 = 155000
         y0 = 463000
@@ -94,7 +94,7 @@ class Stookwijzer:
         x += sum(Rpq[i] * (df ** Rp[i]) * (dl ** Rq[i]) for i in range(9))
         y += sum(Spq[i] * (df ** Sp[i]) * (dl ** Sq[i]) for i in range(10))
 
-        return {x, y}
+        return {"x": x, "y": y}
 
     async def async_update(self) -> None:
         """Get the stookwijzer data."""

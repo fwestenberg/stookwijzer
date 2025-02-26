@@ -4,13 +4,13 @@ import asyncio
 import stookwijzerapi
 
 async def main():
-    x, y = await stookwijzerapi.Stookwijzer.async_transform_coordinates(52.123456, 6.123456)
-    print(f"x:               {x}")
-    print(f"y:               {y}")
+    xy = await stookwijzerapi.Stookwijzer.async_transform_coordinates(52.123456, 6.123456)
+    print(f"x:               {xy['x']}")
+    print(f"y:               {xy['y']}")
 
-    if x and y:
+    if xy:
         session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False))
-        sw = stookwijzerapi.Stookwijzer(session, x, y)
+        sw = stookwijzerapi.Stookwijzer(session, xy['x'], xy['y'])
         await sw.async_update()
 
         print()
