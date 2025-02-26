@@ -92,10 +92,10 @@ class Stookwijzer:
         y = y0
 
         x += sum(
-            Rpq[i] * (df ** Rp[i]) * (dl ** Rq[i]) for i in range(8)
+            Rpq[i] * (df ** Rp[i]) * (dl ** Rq[i]) for i in range(9)
         )  # Converted lat
         y += sum(
-            Spq[i] * (df ** Sp[i]) * (dl ** Sq[i]) for i in range(9)
+            Spq[i] * (df ** Sp[i]) * (dl ** Sq[i]) for i in range(10)
         )  # Converted lon
 
         return {x, y}
@@ -140,7 +140,7 @@ class Stookwijzer:
 
     def get_boundary_box(self, x: float, y: float) -> str | None:
         """Create a boundary box with the coordinates"""
-        return str(x) + "%2C" + str(y) + "%2C" + str(x + 10) + "%2C" + str(y + 10)
+        return str(y) + "%2C" + str(x) + "%2C" + str(y + 10) + "%2C" + str(x + 10)
 
     def get_color(self, advice: str) -> str:
         """Convert the Stookwijzer data into a color."""
