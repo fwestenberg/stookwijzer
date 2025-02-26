@@ -1,7 +1,6 @@
 """The Stookwijze API."""
 
 from datetime import datetime, timedelta
-from pyproj import Transformer
 
 import aiohttp
 import asyncio
@@ -53,12 +52,53 @@ class Stookwijzer:
     @staticmethod
     async def async_transform_coordinates(latitude: float, longitude: float):
         """Transform the coordinates from EPSG:4326 to EPSG:28992."""
-        transformer = Transformer.from_crs("EPSG:4326", "EPSG:28992")
-        coordinates = transformer.transform(latitude, longitude)
+        x0 = 155000
+        y0 = 463000
+        f0 = 52.15517440  # f => phi
+        l0 = 5.38720621  # l => lambda
 
-        if not coordinates:
-            _LOGGER.error("Error requesting coordinate conversion")
-        return coordinates[0], coordinates[1]
+        Rp = [0, 1, 2, 0, 1, 3, 1, 0, 2]
+        Rq = [1, 1, 1, 3, 0, 1, 3, 2, 3]
+        Rpq = [
+            190094.945,
+            -11832.228,
+            -114.221,
+            -32.391,
+            -0.705,
+            -2.34,
+            -0.608,
+            -0.008,
+            0.148,
+        ]
+
+        Sp = [1, 0, 2, 1, 3, 0, 2, 1, 0, 1]
+        Sq = [0, 2, 0, 2, 0, 1, 2, 1, 4, 4]
+        Spq = [
+            309056.544,
+            3638.893,
+            73.077,
+            -157.984,
+            59.788,
+            0.433,
+            -6.439,
+            -0.032,
+            0.092,
+            -0.054,
+        ]
+
+        df = 0.36 * (latitude - f0)
+        dl = 0.36 * (longitude - l0)
+        x = x0
+        y = y0
+
+        x += sum(
+            Rpq[i] * (df ** Rp[i]) * (dl ** Rq[i]) for i in range(8)
+        )  # Converted lat
+        y += sum(
+            Spq[i] * (df ** Sp[i]) * (dl ** Sq[i]) for i in range(9)
+        )  # Converted lon
+
+        return {x, y}
 
     async def async_update(self) -> None:
         """Get the stookwijzer data."""
