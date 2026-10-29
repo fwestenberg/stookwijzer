@@ -104,6 +104,8 @@ class Stookwijzer:
         if advice:
             self._advice = self.get_color(advice)
             self._last_updated = datetime.now()
+        else:
+            self._advice = None
 
     async def async_get_forecast(self) -> list[dict[str, str]]:
         """Return the forecast array."""
