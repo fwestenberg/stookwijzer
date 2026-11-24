@@ -1,1 +1,2 @@
-from stookwijzer.stookwijzerapi import Stookwijzer 
+from stookwijzer.map import MapOptions, StookwijzerMap
+from stookwijzer.stookwijzerapi import Stookwijzer

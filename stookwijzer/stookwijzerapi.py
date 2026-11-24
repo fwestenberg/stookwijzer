@@ -8,6 +8,16 @@ import json
 import logging
 import pytz
 
+from .const import RIVM_LAYER, RIVM_WMS_URL, SERVICE_KEY
+from .map import (
+    MapOptions,
+    StookwijzerMap,
+    compose,
+    compute_bbox,
+    fetch_basemap,
+    fetch_overlay,
+)
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -17,6 +27,11 @@ class Stookwijzer:
 
     def __init__(self, session: aiohttp.ClientSession, x: float, y: float):
         self._boundary_box = self.get_boundary_box(x, y)
+        self._location = self.transform_rd_to_wgs84(x, y)
+        self._basemaps: dict[tuple, bytes] = {}
+        self._maps: dict[MapOptions, tuple[int, StookwijzerMap | None]] = {}
+        self._map_lock = asyncio.Lock()
+        self._update_count = 0
         self._advice = None
         self._alert = None
         self._last_updated = None
@@ -96,8 +111,58 @@ class Stookwijzer:
 
         return {"x": x, "y": y}
 
+    @staticmethod
+    def transform_rd_to_wgs84(x: float, y: float) -> tuple[float, float]:
+        """Transform the coordinates from EPSG:28992 to EPSG:4326 (lat, lon)."""
+        x0 = 155000
+        y0 = 463000
+        f0 = 52.15517440  # f => phi
+        l0 = 5.38720621  # l => lambda
+
+        Kp = [0, 2, 0, 2, 0, 2, 1, 4, 2, 4, 1]
+        Kq = [1, 0, 2, 1, 3, 2, 0, 0, 3, 1, 1]
+        Kpq = [
+            3235.65389,
+            -32.58297,
+            -0.24750,
+            -0.84978,
+            -0.06550,
+            -0.01709,
+            -0.00738,
+            0.00530,
+            -0.00039,
+            0.00033,
+            -0.00012,
+        ]
+
+        Lp = [1, 1, 1, 3, 1, 3, 0, 3, 1, 0, 2, 5]
+        Lq = [0, 1, 2, 0, 3, 1, 1, 2, 4, 2, 0, 0]
+        Lpq = [
+            5260.52916,
+            105.94684,
+            2.45656,
+            -0.81885,
+            0.05594,
+            -0.05607,
+            0.01199,
+            -0.00256,
+            0.00128,
+            0.00022,
+            -0.00022,
+            0.00026,
+        ]
+
+        dx = (x - x0) * 1e-5
+        dy = (y - y0) * 1e-5
+
+        lat = f0 + sum(Kpq[i] * (dx ** Kp[i]) * (dy ** Kq[i]) for i in range(11)) / 3600
+        lon = l0 + sum(Lpq[i] * (dx ** Lp[i]) * (dy ** Lq[i]) for i in range(12)) / 3600
+
+        return lat, lon
+
     async def async_update(self) -> None:
         """Get the stookwijzer data."""
+        self._update_count += 1
         self._stookwijzer = await self.async_get_stookwijzer()
 
         advice = self.get_property("advies_0")
@@ -161,7 +226,7 @@ class Stookwijzer:
     async def async_get_stookwijzer(self):
         """Get the stookwijzer data."""
         url = (
-            "https://data.rivm.nl/geo/alo/wms?service=WMS&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&FORMAT=image/png&TRANSPARENT=true&QUERY_LAYERS=stookwijzer_v2&LAYERS=stookwijzer_v2&servicekey=82b124ad-834d-4c10-8bd0-ee730d5c1cc8&STYLES=&BUFFER=1&EXCEPTIONS=INIMAGE&info_format=application/json&feature_count=1&I=139&J=222&WIDTH=256&HEIGHT=256&CRS=EPSG:28992&BBOX="
+            f"{RIVM_WMS_URL}?service=WMS&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&FORMAT=image/png&TRANSPARENT=true&QUERY_LAYERS={RIVM_LAYER}&LAYERS={RIVM_LAYER}&servicekey={SERVICE_KEY}&STYLES=&BUFFER=1&EXCEPTIONS=INIMAGE&info_format=application/json&feature_count=1&I=139&J=222&WIDTH=256&HEIGHT=256&CRS=EPSG:28992&BBOX="
             + self._boundary_box
         )
 
@@ -181,4 +246,46 @@ class Stookwijzer:
             return None
         except KeyError:
             _LOGGER.error("Received invalid response from Stookwijzer")
+            return None
+
+    async def async_get_map(
+        self, options: MapOptions | None = None
+    ) -> StookwijzerMap | None:
+        """Render a map with the Stookwijzer advice areas around this location.
+
+        The map is only fetched again after async_update() has run, so calling
+        this often (like a camera does) causes no extra requests. When fetching
+        fails, the last successful map is returned (None if there is none).
+        """
+        opt = options or MapOptions()
+        async with self._map_lock:
+            cached = self._maps.get(opt)
+            if cached and cached[0] == self._update_count:
+                return cached[1]
+
+            result = await self._async_render_map(opt) or (cached and cached[1])
+            self._maps[opt] = (self._update_count, result)
+            return result
+
+    async def _async_render_map(self, opt: MapOptions) -> StookwijzerMap | None:
+        """Fetch the layers and render the map."""
+        bbox, width, height = compute_bbox(opt, self._location)
+        key = (bbox, width, opt.basemap, opt.supersample)
+
+        try:
+            basemap = self._basemaps.get(key)
+            if basemap is None:
+                basemap, overlay = await asyncio.gather(
+                    fetch_basemap(self._session, bbox, width, height, opt),
+                    fetch_overlay(self._session, bbox, width, height, opt),
+                )
+                self._basemaps[key] = basemap
+            else:
+                overlay = await fetch_overlay(self._session, bbox, width, height, opt)
+
+            return await asyncio.get_running_loop().run_in_executor(
+                None, compose, basemap, overlay, bbox, opt, self._location
+            )
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, OSError) as err:
+            _LOGGER.error("Error getting Stookwijzer map: %s", err)
             return None
