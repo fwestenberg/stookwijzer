@@ -32,7 +32,8 @@ async def main():
         for name, options in [
             ("stookwijzer_nl.png", MapOptions()),
             ("stookwijzer_regio.png", MapOptions(
-                radius_km=40, levels=("code_yellow", "code_orange", "code_red")
+                radius_km=40,
+                labels={"code_yellow": "Code yellow", "code_orange": "Code orange", "code_red": "Code red"},
             )),
         ]:
             result = await sw.async_get_map(options)

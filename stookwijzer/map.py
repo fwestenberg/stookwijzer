@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from io import BytesIO
 
 import aiohttp
@@ -28,13 +28,14 @@ NL_BBOX = (356000.0, 6555000.0, 813000.0, 7092000.0)
 
 LEVEL_ORDER = ("code_yellow", "code_orange", "code_red")  # red last = on top
 
-LEVELS = {
-    "code_yellow": {"label": "Code geel", "color": (245, 197, 24)},
-    "code_orange": {"label": "Code oranje", "color": (240, 128, 30)},
-    "code_red": {"label": "Code rood", "color": (214, 40, 40)},
+DEFAULT_LABELS = {
+    "code_yellow": "Code geel",
+    "code_orange": "Code oranje",
+    "code_red": "Code rood",
 }
 
-# Colours of the advice levels in the RIVM WMS layer (from its SLD style)
+# Colours of the advice levels in the RIVM WMS layer (from its SLD style). The
+# Stookwijzer website draws them as is, at 60% opacity.
 RIVM_COLORS = {
     "code_yellow": (255, 255, 191),
     "code_orange": (253, 174, 97),
@@ -54,13 +55,16 @@ class MapOptions:
     """Options for rendering a Stookwijzer map."""
 
     width: int = 800
-    levels: tuple[str, ...] = ("code_orange", "code_red")
-    opacity: float = 0.55
+    levels: tuple[str, ...] = ("code_yellow", "code_orange", "code_red")
+    opacity: float = 0.6
     basemap: str = "grijs"  # PDOK: standaard, grijs, pastel, water
     show_location: bool = True
     radius_km: float | None = None  # None = whole NL, else a crop around the location
     supersample: int = 2
     title: str = "Stookwijzer"
+    # Legend text per level, e.g. {"code_red": "Code red"}; missing levels use
+    # the Dutch default. Not part of the hash, so MapOptions stays usable as key.
+    labels: dict[str, str] = field(default_factory=dict, hash=False)
 
 
 @dataclass(frozen=True)
@@ -249,7 +253,7 @@ def compose(
         coverage[name] = round(100 * sum(mask.histogram()[128:]) / total_px, 2)
         if name not in opt.levels or coverage[name] == 0:
             continue
-        color = LEVELS[name]["color"]
+        color = RIVM_COLORS[name]
         soft = mask.filter(ImageFilter.GaussianBlur(1.2 * opt.supersample))
         fill = Image.new("RGBA", base.size, color + (0,))
         fill.putalpha(soft.point(lambda a, o=opt.opacity: int(a * o)))
@@ -283,7 +287,10 @@ def _draw_legend(draw: ImageDraw.ImageDraw, opt: MapOptions, width: int, height:
     fs = max(13, width // 50)
     f_title, f_text = _font(round(fs * 1.25)), _font(fs)
     pad, swatch, gap = fs, fs, round(fs * 0.5)
-    lines = [(LEVELS[name]["label"], LEVELS[name]["color"]) for name in shown]
+    lines = [
+        (opt.labels.get(name, DEFAULT_LABELS[name]), RIVM_COLORS[name])
+        for name in shown
+    ]
 
     text_w = max(
         [draw.textlength(opt.title, font=f_title)]
@@ -303,7 +310,10 @@ def _draw_legend(draw: ImageDraw.ImageDraw, opt: MapOptions, width: int, height:
     y += round(fs * 1.25) + gap
     for text, color in lines:
         draw.rounded_rectangle(
-            (x0 + pad, y + 1, x0 + pad + swatch, y + 1 + swatch), radius=3, fill=color + (255,)
+            (x0 + pad, y + 1, x0 + pad + swatch, y + 1 + swatch),
+            radius=3,
+            fill=color + (round(255 * opt.opacity),),
+            outline=color + (255,),
         )
         draw.text((x0 + pad + swatch + gap, y), text, font=f_text, fill=(40, 40, 40, 255))
         y += fs + gap

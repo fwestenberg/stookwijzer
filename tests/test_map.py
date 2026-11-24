@@ -172,3 +172,15 @@ def test_failed_map_keeps_last_good_map(monkeypatch) -> None:
         assert await client.async_get_map(opt) is good
 
     asyncio.run(run())
+
+
+def test_labels_are_used_and_options_stay_hashable() -> None:
+    opt = MapOptions(width=200, labels={"code_red": "Code red"})
+    same = MapOptions(width=200, labels={"code_red": "Code red"})
+    other = MapOptions(width=200, labels={"code_red": "Rood"})
+    assert {opt: 1}[same] == 1
+    assert opt != other
+
+    base, overlay = png((400, 300)), png((400, 300), CLEAR, right=RED)
+    image = compose(base, overlay, NL_BBOX, opt, (52.0, 5.0)).image
+    assert image != compose(base, overlay, NL_BBOX, other, (52.0, 5.0)).image
