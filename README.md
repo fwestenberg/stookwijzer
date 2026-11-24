@@ -28,10 +28,11 @@ The map is optional: it is only fetched when `async_get_map()` is called. It is 
 | Option | Default | Description |
 | --- | --- | --- |
 | `width` | `800` | Width of the image in pixels |
-| `levels` | `("code_orange", "code_red")` | Advice levels to draw |
-| `opacity` | `0.55` | Opacity of the coloured areas |
+| `levels` | `("code_yellow", "code_orange", "code_red")` | Advice levels to draw |
+| `opacity` | `0.6` | Opacity of the coloured areas |
 | `basemap` | `"grijs"` | PDOK basemap: `standaard`, `grijs`, `pastel` or `water` |
 | `show_location` | `True` | Show a marker at the Stookwijzer location |
 | `radius_km` | `None` | `None` for the whole country, otherwise a square around the location |
 | `supersample` | `2` | Render at a higher resolution for smoother edges |
 | `title` | `"Stookwijzer"` | Title in the legend |
+| `labels` | `{}` | Legend text per level, e.g. `{"code_red": "Code red"}`. Missing levels use the Dutch default (`Code geel`, `Code oranje`, `Code rood`) |
